@@ -2,7 +2,6 @@
 
 A production-inspired, horizontally scalable distributed background job scheduling platform built entirely from scratch in Node.js and TypeScript, using PostgreSQL as the primary data store and locking mechanism.
 
-![Dashboard Preview](./docs/dashboard.png) *(Note: Placeholder for actual dashboard screenshot)*
 
 ## Features
 

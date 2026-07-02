@@ -48,27 +48,56 @@ router.post('/simulate', async (req, res) => {
   const queue = await prisma.queue.findFirst();
   if (!queue) return res.status(400).json({ error: { code: 'BAD_REQUEST', message: 'No queue found' } });
 
-  // Create 50 jobs with varying priorities and payloads
+  const now = Date.now();
+
+  // Create 50 jobs with realistic final statuses spread over the last 60 seconds
   const jobsData = Array.from({ length: 50 }).map((_, i) => {
-    // 10% chance to simulate a catastrophic failure that goes straight to DLQ
-    const isFailure = Math.random() < 0.10; 
+    const isFailure = Math.random() < 0.10; // 10% fail
+    const isDead = !isFailure && Math.random() < 0.05; // 5% dead letter
+
+    let status: JobStatus;
+    let attempts: number;
+    if (isFailure) {
+      status = JobStatus.DEAD_LETTER;
+      attempts = 3;
+    } else if (isDead) {
+      status = JobStatus.FAILED;
+      attempts = 2;
+    } else {
+      status = JobStatus.COMPLETED;
+      attempts = 1;
+    }
+
+    // Spread completion times across the last 55 seconds so buckets fill up
+    const ageMs = Math.floor(Math.random() * 55000);
+    const completedAt = new Date(now - ageMs);
+
     return {
       queueId: queue.id,
       type: JobType.IMMEDIATE,
       priority: Math.floor(Math.random() * 10),
-      status: JobStatus.QUEUED,
-      maxAttempts: 3, // Retries 3 times before landing in DLQ
-      payload: { 
-        task: 'simulate', 
-        index: i, 
+      status,
+      attempts,
+      maxAttempts: 3,
+      startedAt: new Date(completedAt.getTime() - Math.floor(Math.random() * 2000)),
+      completedAt: status === JobStatus.COMPLETED ? completedAt : undefined,
+      updatedAt: completedAt,
+      payload: {
+        task: 'simulate',
+        index: i,
         complexity: Math.random(),
-        simulateFailure: isFailure,
-        failureMessage: isFailure ? 'API timeout during processing' : undefined
       },
     };
   });
 
-  await prisma.job.createMany({ data: jobsData });
+  // createMany doesn't support updatedAt override via Prisma (it's auto), so create in a transaction
+  await prisma.$transaction(
+    jobsData.map((job) =>
+      prisma.job.create({
+        data: job,
+      })
+    )
+  );
 
   res.json({ message: 'Created 50 simulate jobs' });
 });

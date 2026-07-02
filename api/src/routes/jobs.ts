@@ -66,7 +66,7 @@ router.post('/simulate', async (req, res) => {
       type: JobType.IMMEDIATE,
       priority: Math.floor(Math.random() * 10),
       status,
-      attempts: isFailure ? 3 : isFailed ? 2 : 1,
+      attemptCount: isFailure ? 3 : isFailed ? 2 : 1,
       maxAttempts: 3,
       payload: { task: 'simulate', index: i, complexity: Math.random() },
     };

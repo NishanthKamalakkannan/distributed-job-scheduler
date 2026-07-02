@@ -50,53 +50,40 @@ router.post('/simulate', async (req, res) => {
 
   const now = Date.now();
 
-  // Create 50 jobs with realistic final statuses spread over the last 60 seconds
+  // Build job data — updatedAt is set here but Prisma will override it
   const jobsData = Array.from({ length: 50 }).map((_, i) => {
-    const isFailure = Math.random() < 0.10; // 10% fail
-    const isDead = !isFailure && Math.random() < 0.05; // 5% dead letter
+    const isFailure = Math.random() < 0.10; // 10% fail → DEAD_LETTER
+    const isFailed  = !isFailure && Math.random() < 0.05; // 5% → FAILED
 
-    let status: JobStatus;
-    let attempts: number;
-    if (isFailure) {
-      status = JobStatus.DEAD_LETTER;
-      attempts = 3;
-    } else if (isDead) {
-      status = JobStatus.FAILED;
-      attempts = 2;
-    } else {
-      status = JobStatus.COMPLETED;
-      attempts = 1;
-    }
-
-    // Spread completion times across the last 55 seconds so buckets fill up
-    const ageMs = Math.floor(Math.random() * 55000);
-    const completedAt = new Date(now - ageMs);
+    const status: JobStatus = isFailure
+      ? JobStatus.DEAD_LETTER
+      : isFailed
+        ? JobStatus.FAILED
+        : JobStatus.COMPLETED;
 
     return {
       queueId: queue.id,
       type: JobType.IMMEDIATE,
       priority: Math.floor(Math.random() * 10),
       status,
-      attempts,
+      attempts: isFailure ? 3 : isFailed ? 2 : 1,
       maxAttempts: 3,
-      startedAt: new Date(completedAt.getTime() - Math.floor(Math.random() * 2000)),
-      completedAt: status === JobStatus.COMPLETED ? completedAt : undefined,
-      updatedAt: completedAt,
-      payload: {
-        task: 'simulate',
-        index: i,
-        complexity: Math.random(),
-      },
+      payload: { task: 'simulate', index: i, complexity: Math.random() },
     };
   });
 
-  // createMany doesn't support updatedAt override via Prisma (it's auto), so create in a transaction
+  // Create all jobs, then backdate updated_at via raw SQL so the chart fills up
+  const created = await prisma.$transaction(
+    jobsData.map((job) => prisma.job.create({ data: job, select: { id: true } }))
+  );
+
+  // Spread the 50 jobs across the last 55 seconds (Prisma overrides updatedAt, so use raw SQL)
   await prisma.$transaction(
-    jobsData.map((job) =>
-      prisma.job.create({
-        data: job,
-      })
-    )
+    created.map(({ id }, i) => {
+      const ageMs = Math.floor(Math.random() * 55000);
+      const ts = new Date(now - ageMs);
+      return prisma.$executeRaw`UPDATE jobs SET updated_at = ${ts}, completed_at = ${ts} WHERE id = ${id}`;
+    })
   );
 
   res.json({ message: 'Created 50 simulate jobs' });

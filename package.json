@@ -11,7 +11,8 @@
   ],
   "scripts": {
     "migrate": "npm run migrate -w prisma",
-    "seed": "npm run seed -w prisma"
+    "seed": "npm run seed -w prisma",
+    "test": "npm run test -w api"
   },
   "devDependencies": {
     "typescript": "^5.4.5",

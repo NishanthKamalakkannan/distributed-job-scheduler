@@ -2,7 +2,8 @@
   "name": "prisma-db",
   "version": "1.0.0",
   "private": true,
-  "main": "index.ts",
+  "main": "index.js",
+  "types": "index.d.ts",
   "scripts": {
     "migrate": "npx prisma migrate dev",
     "seed": "npx ts-node seed.ts",

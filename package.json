@@ -1,0 +1,20 @@
+{
+  "name": "distributed-job-scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "api",
+    "worker",
+    "scheduler",
+    "prisma",
+    "web"
+  ],
+  "scripts": {
+    "migrate": "npm run migrate -w prisma",
+    "seed": "npm run seed -w prisma"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5",
+    "@types/node": "^20.12.12"
+  }
+}

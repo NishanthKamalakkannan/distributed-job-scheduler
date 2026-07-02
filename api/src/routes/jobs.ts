@@ -82,7 +82,7 @@ router.post('/simulate', async (req, res) => {
     created.map(({ id }, i) => {
       const ageMs = Math.floor(Math.random() * 55000);
       const ts = new Date(now - ageMs);
-      return prisma.$executeRaw`UPDATE jobs SET updated_at = ${ts}, completed_at = ${ts} WHERE id = ${id}`;
+      return prisma.$executeRaw`UPDATE "Job" SET "updatedAt" = ${ts}, "completedAt" = ${ts} WHERE id = ${id}`;
     })
   );
 

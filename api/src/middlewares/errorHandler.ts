@@ -31,8 +31,8 @@ export const errorHandler = (err: any, req: Request, res: Response, next: NextFu
   res.status(statusCode).json({
     error: {
       code: err.code || 'INTERNAL_ERROR',
-      message,
-      details: process.env.NODE_ENV === 'development' ? err.stack : undefined,
+      message: err.message || message,
+      details: err.stack,
     },
   });
 };

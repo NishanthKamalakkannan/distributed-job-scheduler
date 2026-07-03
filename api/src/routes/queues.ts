@@ -75,8 +75,27 @@ router.post('/', validate(createQueueSchema), async (req, res) => {
 router.patch('/:id', validate(updateQueueSchema), async (req, res) => {
   const { id } = req.params;
   const data = req.body;
+  const userId = req.user!.userId;
   
-  // Minimal access check could be implemented here as well
+  // Validate user has access to the project
+  const queueCheck = await prisma.queue.findFirst({
+    where: {
+      id,
+      project: {
+        organization: {
+          memberships: {
+            some: { userId },
+          },
+        },
+      },
+    },
+  });
+
+  if (!queueCheck) {
+    return res.status(404).json({
+      error: { code: 'NOT_FOUND', message: 'Queue not found or access denied' },
+    });
+  }
 
   const queue = await prisma.queue.update({
     where: { id },

@@ -1,5 +1,6 @@
 import { prisma, JobStatus, JobType } from 'prisma-db';
 import cron from 'node-cron';
+import cronParser from 'cron-parser';
 import pino from 'pino';
 import os from 'os';
 import { randomUUID } from 'crypto';
@@ -58,9 +59,14 @@ export class SchedulerService {
           },
         });
 
-        // Compute next run. For simplicity of not importing a full cron parser, 
-        // we'll just advance it by a minute. In a real system, you'd parse `cronExpression`.
-        const nextRun = new Date(Date.now() + 60000); 
+        // Compute next run using cron-parser
+        let nextRun = new Date(Date.now() + 60000); // Fallback
+        try {
+          const interval = cronParser.parseExpression(lockedJob.cronExpression);
+          nextRun = interval.next().toDate();
+        } catch (err) {
+          logger.error({ err, scheduledJobId: lockedJob.id }, 'Error parsing cron expression');
+        }
 
         // Update the schedule and release lock
         await prisma.scheduledJob.update({
@@ -140,6 +146,27 @@ export class SchedulerService {
             }),
           ]);
           logger.info({ jobId: exec.jobId }, 'Requeued orphaned job');
+        }
+
+        // Also reap jobs stuck in CLAIMED state where worker died before execution started
+        const claimedJobs = await prisma.job.findMany({
+          where: {
+            claimedByWorkerId: worker.id,
+            status: 'CLAIMED'
+          }
+        });
+
+        for (const job of claimedJobs) {
+          await prisma.job.update({
+            where: { id: job.id },
+            data: {
+              status: 'QUEUED',
+              claimedByWorkerId: null,
+              startedAt: null,
+              runAt: null,
+            },
+          });
+          logger.info({ jobId: job.id }, 'Requeued stuck CLAIMED job');
         }
       }
     } catch (err) {

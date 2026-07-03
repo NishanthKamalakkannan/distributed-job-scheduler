@@ -125,7 +125,7 @@ Open your browser to `http://localhost:5173`.
 - `POST /jobs` - Enqueue a new job
 - `POST /jobs/:id/cancel` - Cancel a pending job
 - `GET /workers` - List active workers and their status
-- `GET /dead-letter` - View permanently failed jobs
+- `GET /dead-letter-jobs` - View permanently failed jobs
 
 ## License
 

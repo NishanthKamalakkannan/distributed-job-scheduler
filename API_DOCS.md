@@ -15,6 +15,19 @@ Authenticates a user and returns a JWT token.
 
 ---
 
+## 1.5 Projects
+
+### `GET /projects`
+Lists all projects belonging to the user's organizations, including queue counts.
+- **Response (200):** `{ "data": [ { "id": "...", "name": "...", "organizationId": "...", "_count": { "queues": 2 } } ] }`
+
+### `POST /projects`
+Creates a new project within a specific organization. Requires the user to have membership in the target organization.
+- **Body:** `{ "name": "Data Pipeline", "organizationId": "<uuid>" }`
+- **Response (201):** `{ "data": { "id": "...", "name": "Data Pipeline", ... } }`
+
+---
+
 ## 2. Queues
 
 ### `GET /queues`
@@ -24,6 +37,10 @@ Lists all queues with their configuration.
 ### `POST /queues`
 Creates a new queue.
 - **Body:** `{ "projectId": "...", "name": "high-priority", "concurrencyLimit": 20 }`
+
+### `PATCH /queues/:id`
+Updates a queue's configuration. Requires the user to have membership in the organization owning the queue's project.
+- **Body:** `{ "name": "renamed-queue", "concurrencyLimit": 30, "isPaused": true }`
 
 ### `POST /queues/:id/pause`
 Pauses a queue (workers will stop claiming from it).
@@ -84,8 +101,8 @@ Lists all registered workers, their current status (`ONLINE`, `DRAINING`, `OFFLI
 
 ## 5. Dead Letter Queue (DLQ)
 
-### `GET /dead-letter`
+### `GET /dead-letter-jobs`
 Lists all permanently failed jobs that have exceeded their `maxAttempts`.
 
-### `POST /dead-letter/:id/retry`
+### `POST /dead-letter-jobs/:id/retry`
 Requeues the dead-lettered job for processing and marks the DLQ entry as reprocessed.

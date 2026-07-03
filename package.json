@@ -12,10 +12,12 @@
   "scripts": {
     "migrate": "npm run migrate -w prisma",
     "seed": "npm run seed -w prisma",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "dev": "concurrently -n api,worker,scheduler,web -c blue,green,yellow,magenta \"npm run dev -w api\" \"npm run dev -w worker\" \"npm run dev -w scheduler\" \"npm run dev -w web\""
   },
   "devDependencies": {
-    "typescript": "^5.4.5",
-    "@types/node": "^20.12.12"
+    "@types/node": "^20.12.12",
+    "concurrently": "^10.0.3",
+    "typescript": "^5.4.5"
   }
 }

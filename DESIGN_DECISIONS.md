@@ -38,13 +38,13 @@ This document outlines the major architectural and technical design decisions ma
   - The latency from job creation to execution is bound by the polling interval (e.g., 1-2 seconds) rather than being instantaneous.
 
 ## 4. Concurrency Control and Heartbeats
-**Decision:** We implemented an active heartbeat mechanism (workers ping the DB every 15s) and a Dead Worker Reaper (runs every 1 minute).
+**Decision:** We implemented an active heartbeat mechanism (workers ping the DB every 5s) and a Dead Worker Reaper (runs every 1 minute).
 
 **Trade-offs:**
 - *Pros:*
   - Solves the problem of "zombie jobs"—jobs claimed by a worker that subsequently OOMs, crashes, or loses network before completing the job. The Reaper detects stale heartbeats, marks the worker as OFFLINE, and safely requeues the jobs.
 - *Cons:*
-  - Generates background write traffic to the database (heartbeats). We mitigate this by only updating heartbeats every 15 seconds rather than per-job.
+  - Generates background write traffic to the database (heartbeats). We mitigate this by only updating heartbeats every 5 seconds rather than per-job.
 
 ## 5. Mono-repo Architecture
 **Decision:** The project is organized as an `npm` workspace mono-repo (`api`, `worker`, `web`, `prisma`).
@@ -65,3 +65,13 @@ This document outlines the major architectural and technical design decisions ma
   - Referential integrity guarantees that a job cannot be assigned to a non-existent queue or retry policy.
 - *Cons:*
   - Vertical scaling limit: Eventually, the single database could become a bottleneck. If this occurs, the Job logs (which grow fastest) would be the first candidate to shard or move to a separate datastore like ClickHouse or Elasticsearch.
+
+## 7. Bonus Features
+
+- **Distributed Locking:** We implemented atomic leader election for the Scheduler using a `ScheduledJob.lockedBy`/`lockedUntil` update pattern. This prevents double-spawning recurring jobs when multiple scheduler instances are running concurrently. We consciously reused the same `UPDATE ... WHERE ... RETURNING` pattern as the worker's job-claiming logic to maintain architectural consistency.
+- **Workflow Dependencies:** Jobs support a self-relational `dependsOnJobId` field. The atomic claim query in `WorkerService.ts` filters out any jobs whose dependency hasn't reached `COMPLETED`. We made the trade-off to support only single-parent dependencies (rather than a full DAG) because it's significantly simpler to reason about in SQL and sufficient for the assignment scope, at the cost of not supporting complex "wait for multiple jobs" fan-in.
+
+## 8. Lessons Learned / Notable Bugs Fixed
+
+- **Silent API Changes in Dependencies:** The `cron-parser` library introduced a breaking API change between v4 and v5 (replacing `.parseExpression()` with a static `CronExpressionParser.parse()`). Because the calling code was wrapped in a `try/catch` with a silent fallback (+60s), the runtime failure was swallowed entirely. This highlighted why silent fallbacks in error-handling code deserve intense scrutiny during testing, as they easily mask regressions.
+- **Idempotency in Error Paths (DLQ):** When manually retrying a job that had previously hit the Dead Letter Queue, a second failure would attempt to insert another `DeadLetterJob` record. Since `jobId` is a unique constraint, this would throw an unhandled database error. We learned that error transitions must also be idempotent, and replaced `.create()` with `.upsert()` to safely update existing DLQ records when jobs repeatedly exhaust their retries.

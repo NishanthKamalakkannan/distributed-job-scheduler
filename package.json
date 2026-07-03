@@ -12,7 +12,7 @@
   "scripts": {
     "migrate": "npm run migrate -w prisma",
     "seed": "npm run seed -w prisma",
-    "test": "npm run test -w api"
+    "test": "npm run test --workspaces --if-present"
   },
   "devDependencies": {
     "typescript": "^5.4.5",

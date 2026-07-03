@@ -1,6 +1,6 @@
 import { prisma, JobStatus, JobType } from 'prisma-db';
 import cron from 'node-cron';
-import cronParser from 'cron-parser';
+import { CronExpressionParser } from 'cron-parser';
 import pino from 'pino';
 import os from 'os';
 import { randomUUID } from 'crypto';
@@ -62,7 +62,7 @@ export class SchedulerService {
         // Compute next run using cron-parser
         let nextRun = new Date(Date.now() + 60000); // Fallback
         try {
-          const interval = cronParser.parseExpression(lockedJob.cronExpression);
+          const interval = CronExpressionParser.parse(lockedJob.cronExpression);
           nextRun = interval.next().toDate();
         } catch (err) {
           logger.error({ err, scheduledJobId: lockedJob.id }, 'Error parsing cron expression');

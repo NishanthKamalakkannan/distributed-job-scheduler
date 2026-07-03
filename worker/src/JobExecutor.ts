@@ -134,13 +134,20 @@ export async function executeJob(job: Job, workerId: string) {
             attemptCount: newAttemptCount,
           },
         }),
-        prisma.deadLetterJob.create({
-          data: {
+        prisma.deadLetterJob.upsert({
+          where: { jobId: job.id },
+          create: {
             jobId: job.id,
             reason: `Max attempts (${job.maxAttempts}) reached. Last error: ${error.message}`,
             payloadSnapshot: job.payload || {},
             attemptCount: newAttemptCount,
           },
+          update: {
+            reason: `Max attempts (${job.maxAttempts}) reached. Last error: ${error.message}`,
+            attemptCount: newAttemptCount,
+            failedAt: new Date(),
+            reprocessedAt: null,
+          }
         }),
       ]);
       logger.warn({ jobId: job.id }, 'Job moved to Dead Letter Queue');

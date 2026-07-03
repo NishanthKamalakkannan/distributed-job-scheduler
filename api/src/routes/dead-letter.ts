@@ -44,7 +44,7 @@ router.post('/:id/retry', validate(deadLetterRetrySchema), async (req, res) => {
   // Update the actual job back to QUEUED
   const updatedJob = await prisma.job.update({
     where: { id: dlq.jobId },
-    data: { status: JobStatus.QUEUED, runAt: null },
+    data: { status: JobStatus.QUEUED, runAt: null, attemptCount: 0 },
   });
 
   // Mark reprocessed

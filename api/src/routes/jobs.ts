@@ -262,7 +262,7 @@ router.post('/:id/retry', validate(jobIdParamSchema), async (req, res) => {
 
   const updatedJob = await prisma.job.update({
     where: { id },
-    data: { status: JobStatus.QUEUED, runAt: null },
+    data: { status: JobStatus.QUEUED, runAt: null, attemptCount: 0 },
   });
 
   res.json({ data: updatedJob });
